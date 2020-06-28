@@ -1,0 +1,1 @@
+INTERNAL_CONSUMER_TOPIC = 'process_message'
