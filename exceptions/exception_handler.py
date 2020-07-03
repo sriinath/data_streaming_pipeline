@@ -26,10 +26,13 @@ class ExceptionHandler:
             })
         except AssertionError as exc:
             print(exc)
+            message = str(exc)
+            if not message:
+                message = 'Please make sure the request is valid'
             response.status = HTTP_422
             response.body = json.dumps({
                 'status': 'Failure',
-                'message': str(exc)
+                'message': message
             })
         except Exception as exc:
             print(exc)

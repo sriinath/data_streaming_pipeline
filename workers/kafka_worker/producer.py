@@ -1,3 +1,4 @@
+import json
 from falcon import HTTP_503
 from kafka import KafkaProducer
 
@@ -8,8 +9,13 @@ class Producer:
         self.__producer = KafkaProducer(**kwargs)
     
     def send_message(self, *args, **kwargs):
-        if self.__producer.bootstrap_connected():
+        try:
             self.__producer.send(*args, **kwargs)
             self.__producer.flush()
-            return
-        raise CustomException(HTTP_503, 'Kafka connection error')
+        except Exception as exc:
+            print(exc)
+
+default_producer = Producer(
+    key_serializer=str.encode,
+    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+)

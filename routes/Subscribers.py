@@ -1,8 +1,10 @@
 import json
-from falcon import HTTP_200, HTTP_400,HTTPInternalServerError
+from falcon import HTTP_200, HTTP_400, HTTPInternalServerError
 
-from workers.kafka_worker.kafka_manager import default_producer, default_consumer
+from workers.kafka_worker.producer import default_producer
+from workers.kafka_worker.consumer import default_consumer
 from exceptions.exception_handler import ExceptionHandler
+from constants import INTERNAL_CONSUMER_TOPIC, SUBSCRIBE_TOPIC
 
 class Subscribers:
     @ExceptionHandler
@@ -15,7 +17,7 @@ class Subscribers:
         data = req_body.get('data', {})
 
         assert data, 'Cannot send an empty message to the topic'
-        default_producer.send_message(topic, data)
+        default_producer.send_message(topic, key='', value=data)
         response.body = json.dumps({
             'status': 'Success',
             'message': 'Added the message to the topic successfully'
@@ -31,7 +33,12 @@ class Subscribers:
         assert topic, 'Topic is mandatory in the request body'
         data = req_body.get('data', {})
         print(data)
-        default_consumer.subscribe_topics(topic)
+        # default_consumer.subscribe_topics(topic)
+        default_producer.send_message(
+            INTERNAL_CONSUMER_TOPIC, key=SUBSCRIBE_TOPIC, value={
+                'value': topic
+            }
+        )
         response.body = json.dumps({
             'status': 'Success',
             'message': 'Subscribed to the topic successfully'
