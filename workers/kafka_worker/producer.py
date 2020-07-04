@@ -9,8 +9,22 @@ class Producer:
         self.__producer = KafkaProducer(**kwargs)
     
     def send_message(self, *args, **kwargs):
+        data = []
+        if 'data' in kwargs:
+            data = kwargs.pop('data')
         try:
-            self.__producer.send(*args, **kwargs)
+            if isinstance(data, list) and data:
+                for chunk in data:
+                    key = chunk.get('key', '')
+                    value = chunk.get('value', {})
+                    self.__producer.send(
+                        *args,
+                        key=key,
+                        value=value,
+                        **kwargs
+                    )
+            else:
+                self.__producer.send(*args, **kwargs)
             self.__producer.flush()
         except Exception as exc:
             print(exc)

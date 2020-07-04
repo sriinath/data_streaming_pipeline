@@ -14,10 +14,13 @@ class Subscribers:
         topic = req_body.get('topic', None)
 
         assert topic, 'Topic is mandatory in the request body'
-        data = req_body.get('data', {})
+        data = req_body.get('data', [])
 
         assert data, 'Cannot send an empty message to the topic'
-        default_producer.send_message(topic, key='', value=data)
+        if isinstance(data, list):
+            default_producer.send_message(topic, data=data)
+        else:
+            default_producer.send_message(topic, key='', value=data)
         response.body = json.dumps({
             'status': 'Success',
             'message': 'Added the message to the topic successfully'
@@ -33,12 +36,12 @@ class Subscribers:
         assert topic, 'Topic is mandatory in the request body'
         data = req_body.get('data', {})
         print(data)
-        # default_consumer.subscribe_topics(topic)
-        default_producer.send_message(
-            INTERNAL_CONSUMER_TOPIC, key=SUBSCRIBE_TOPIC, value={
-                'value': topic
-            }
-        )
+        default_consumer.subscribe_topics(topic)
+        # default_producer.send_message(
+        #     INTERNAL_CONSUMER_TOPIC, key=SUBSCRIBE_TOPIC, value={
+        #         'value': topic
+        #     }
+        # )
         response.body = json.dumps({
             'status': 'Success',
             'message': 'Subscribed to the topic successfully'

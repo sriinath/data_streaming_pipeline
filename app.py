@@ -2,10 +2,10 @@ import falcon
 
 from routes.Ping import Ping
 from routes.Subscribers import Subscribers
-from processes.kafka_manager import run_processes
+from processes.main_processor import run_manager
 
 api = falcon.API()
 api.add_route('/ping', Ping())
 api.add_route('/api/v1/topics/message', Subscribers())
 
-run_processes()
+run_manager()
