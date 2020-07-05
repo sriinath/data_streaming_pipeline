@@ -20,20 +20,20 @@ def default_processor(message):
 
 def internal_processor(message):
     print('received message fro internal consumption')
-    print(message)
     internal_task_key = message.key
     if internal_task_key == CONSUME_MESSAGE.encode():
         print('consuming message for internal process')
-        print(message)
 
 def heart_beat(consumer_manager):
     assert isinstance(consumer_manager, KafkaConsumerManager), 'consumer manager must be instance of KafkaConsumerManager'
     while True:
         try:
             consumer_count, messages_in_flight = consumer_manager.check_heart_beat()
-            incremental_counter = messages_in_flight / MAX_MESSAGES_PER_CONSUMER
-            if int(incremental_counter) > (consumer_count + 1):
-                consumer_manager.increment_consumer(incremental_counter - consumer_count)
+            incremental_counter = int(messages_in_flight / MAX_MESSAGES_PER_CONSUMER)
+            if incremental_counter > (consumer_count + 1):
+                consumer_manager.increment_consumer(incremental_counter - (consumer_count + 1))
+            elif consumer_count > incremental_counter:
+                consumer_manager.decrement_consumer(consumer_count - incremental_counter)
             sleep(HEARTBEAT_INTERVAL)
         except Exception as exc:
             print(exc)

@@ -9,6 +9,7 @@ class KafkaConsumerManager:
         self.__topics = topics
         self.__cbk_fn = cbk_fn
         self.__consumer_configs = consumer_configs
+        self.__group_id = consumer_configs.get('group_id', '')
         self.__consumer_list = list()
         self.__max_consumers = int(kwargs.get('max_consumers', MAX_CONSUMERS))
         self.__default_consumer = Consumer(*topics, **consumer_configs)
@@ -29,9 +30,6 @@ class KafkaConsumerManager:
 
     def get_consumer_count(self):
         return len(self.__consumer_list)
-
-    def get_messages_in_flight(self):
-        return self.__default_consumer.get_messages_in_flight()
 
     def add_topic(self, topic):
         if topic not in self.__topics:
@@ -70,13 +68,17 @@ class KafkaConsumerManager:
         print('completed removing consumers', count)
         return self.get_consumer_count()
 
+    def get_messages_in_flight(self):
+        messages_flight = Consumer.get_messages_in_flight()
+        return messages_flight.get(self.__group_id, 0)
+
     def check_heart_beat(self):
         print('Heartbeat check')
         for consumer in self.__consumer_list:
             if not consumer.is_active():
                 self.__consumer_list.remove(consumer)
-        print('Active threads are: ', active_count())
-        print('Total Consumer counts: ', self.get_consumer_count())
-        print('messages in flight: ', self.get_messages_in_flight())
-        print('All Subscription across topics: ', self.subscribed_topics())
+        print('Active threads ({}) are: '.format(self.__group_id), active_count())
+        print('Total Consumer counts ({}): '.format(self.__group_id), self.get_consumer_count())
+        print('messages in flight ({}): '.format(self.__group_id), self.get_messages_in_flight())
+        print('All Subscription across topics ({}): '.format(self.__group_id), self.subscribed_topics())
         return self.get_consumer_count(), self.get_messages_in_flight()

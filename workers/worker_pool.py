@@ -16,6 +16,7 @@ class WorkerThreadPool:
                 task = self.executor.submit(task_fn, *args, **kwargs)
                 if post_process_fn and callable(post_process_fn):
                     task.add_done_callback(post_process_fn)
+                return task
             except Exception as worker_exception:
                 print('Exception while processing tasks in worker thread')
                 return worker_exception
