@@ -2,14 +2,18 @@ from kafka import KafkaConsumer
 from time import sleep
 import json
 
-from constants import INTERNAL_CONSUMER_TOPIC, MAX_POLL_DELAY, MIN_POLL_DELAY
+from constants import INTERNAL_CONSUMER_TOPIC, MAX_POLL_DELAY, MIN_POLL_DELAY, MAX_RECORDS_PER_POLL
 
 class Consumer:
     def __init__(self, *args, **kwargs):
         self.__consumer = KafkaConsumer(*args, **kwargs)
         self.__enable_polling = True
+        self.__is_active = True
         self.__poll_delay = MIN_POLL_DELAY
         self.__flight_messages = 0
+
+    def is_active(self):
+        return self.__is_active
 
     def get_current_subscriptions(self):
         return self.__consumer.subscription()
@@ -27,9 +31,6 @@ class Consumer:
         return self.__flight_messages
 
     def subscribe_topics(self, *topics):
-        current_topics = self.get_current_subscriptions()
-        if current_topics:
-            topics = (*topics, *current_topics)
         self.__consumer.subscribe(topics=topics)
         print('subscribed to the topics', topics)
 
@@ -40,30 +41,36 @@ class Consumer:
             process_fn(message)
         self.close_consumer()
 
-    def __poll(self, timeout_ms=0, max_records=None):
+    def __poll(self, timeout_ms=0, max_records=MAX_RECORDS_PER_POLL):
         while self.__enable_polling:
-            message = self.__consumer.poll(
-                timeout_ms=timeout_ms, max_records=max_records
-            )
-            total_flight_messages = 0
-            if message:
-                self.__poll_delay = MIN_POLL_DELAY
-                total_flight_messages = self.get_end_offset(message.keys())
-                for partitions in message:
-                    try:
-                        records = message.get(partitions)
-                        for data in records:
-                            yield data
-                    except Exception as exc:
-                        print(exc)
-            else:
-                delay = self.__poll_delay * 2
-                if delay <= MAX_POLL_DELAY:
-                    self.__poll_delay = delay
+            try:
+                message = self.__consumer.poll(
+                    timeout_ms=timeout_ms, max_records=max_records
+                )
+                self.__flight_messages = 0
+                if message:
+                    self.__poll_delay = MIN_POLL_DELAY
+                    max_offset_position = self.get_end_offset(message.keys())
+                    for partitions in message:
+                        try:
+                            records = message.get(partitions)
+                            self.__flight_messages += (max_offset_position.get(partitions) \
+                                - self.get_current_position(partitions))
+                            print(self.__flight_messages)
+                            for data in records:
+                                yield data
+                        except Exception as exc:
+                            print(exc)
                 else:
-                    self.__poll_delay = MAX_POLL_DELAY
-            self.__flight_messages = total_flight_messages
-            sleep(self.__poll_delay)
+                    delay = self.__poll_delay * 2
+                    if delay <= MAX_POLL_DELAY:
+                        self.__poll_delay = delay
+                    else:
+                        self.__poll_delay = MAX_POLL_DELAY
+                sleep(self.__poll_delay)
+            except AssertionError as assertion_exc:
+                print(assertion_exc)
+                self.stop_polling()
 
     def poll_topics(self, process_fn, timeout_ms=0, max_records=None):
         assert process_fn and callable(process_fn), \
@@ -72,19 +79,10 @@ class Consumer:
             process_fn(message)
 
     def stop_polling(self):
+        print('stop polling and closing the consumer')
         self.__enable_polling = False
         self.close_consumer()
 
     def close_consumer(self):
         self.__consumer.close()
-
-default_consumer = Consumer(
-    value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-    group_id='default'
-)
-
-internal_consumer = Consumer(
-    INTERNAL_CONSUMER_TOPIC,
-    value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-    group_id='internal'
-)
+        self.__is_active = False
