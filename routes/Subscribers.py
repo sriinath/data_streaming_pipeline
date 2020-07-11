@@ -30,7 +30,7 @@ class Subscribers:
 
     @ExceptionHandler
     def on_post(self, request, response):
-        user_name = 'default'
+        user_name = request.context['user_name']
         req_body = json.load(request.bounded_stream)
         assert req_body, 'JSON body is mandatory to process this request'
 
