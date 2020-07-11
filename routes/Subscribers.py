@@ -3,7 +3,9 @@ from falcon import HTTP_200, HTTP_400, HTTPInternalServerError
 
 from workers.kafka_worker.producer import default_producer
 from processes.main_processor import default_consumer
+from processes.redis_utils import DEFAULT_REDIS
 from exceptions.exception_handler import ExceptionHandler
+from constants import TOPIC_PREFIX
 
 class Subscribers:
     @ExceptionHandler
@@ -28,16 +30,31 @@ class Subscribers:
 
     @ExceptionHandler
     def on_post(self, request, response):
+        user_name = 'default'
         req_body = json.load(request.bounded_stream)
         assert req_body, 'JSON body is mandatory to process this request'
-        topic = req_body.get('topic', None)
 
-        assert topic, 'Topic is mandatory in the request body'
-        data = req_body.get('data', {})
-        print(data)
-        default_consumer.add_topic(topic)
+        for subscription in req_body:
+            topics = subscription.get('topics', [])
+            assert topics, 'Topic is mandatory in the request body'
+
+            subscribe_data = subscription.get('subscibe', [])
+            default_consumer.add_topic(topics)
+            assert isinstance(subscribe_data, list), 'each item of subscibe must be a object'
+
+            for subscriber in subscribe_data:
+                url = subscriber.get('url', '')
+                assert url, 'url must be valid'
+
+                for topic in topics:
+                    topic_key = '{}:{}'.format(TOPIC_PREFIX, topic)
+                    key = '{}:{}'.format(user_name, url)
+                    DEFAULT_REDIS.update_hash_value(
+                        topic_key, key, json.dumps(subscriber)
+                    )
+
         response.body = json.dumps({
             'status': 'Success',
-            'message': 'Subscribed to the topic successfully'
+            'message': 'Subscribed to the topics successfully'
         })
         response.status = HTTP_200

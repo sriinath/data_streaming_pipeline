@@ -26,10 +26,11 @@ class KafkaConsumerManager:
     def get_consumer_count(self):
         return len(self.__consumer_list)
 
-    def add_topic(self, topic):
-        if topic not in self.__topics:
-            self.__topics.add(topic)
-            self.update_consumer_subscriptions()
+    def add_topic(self, topics):
+        for topic in topics:
+            if topic not in self.__topics:
+                self.__topics.add(topic)
+        self.update_consumer_subscriptions()
 
     def remove_topic(self, topic):
         if topic in self.__topics:

@@ -60,8 +60,7 @@ class Consumer:
                             records = message.get(partitions)
                             Consumer.__flight_messages[self.__group_id] += (max_offset_position.get(partitions) \
                                 - self.get_current_position(partitions))
-                            for data in records:
-                                yield data
+                            yield records
                         except Exception as exc:
                             print(exc)
                 else:
@@ -80,10 +79,10 @@ class Consumer:
     def poll_topics(self, process_fn, timeout_ms=0, max_records=MAX_RECORDS_PER_POLL):
         assert process_fn and callable(process_fn), \
             'process_fn is mandatory and must be callable'
-        for message in self.__poll(timeout_ms=timeout_ms, max_records=max_records):
-            if message is None:
+        for records in self.__poll(timeout_ms=timeout_ms, max_records=max_records):
+            if records is None:
                 break
-            process_fn(message)
+            process_fn(records)
         print('exit from consuming messages')
 
     def stop_polling(self):
