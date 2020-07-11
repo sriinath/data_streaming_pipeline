@@ -1,8 +1,7 @@
-from threading import active_count
+from threading import active_count, Thread
 
-from workers.worker_pool import DEFAULT_WORKER_THREAD
 from workers.kafka_worker.consumer import Consumer
-from constants import MAX_CONSUMERS
+from constants import MAX_CONSUMERS, DEFAULT_CONSUMERS
 
 class KafkaConsumerManager:
     def __init__(self, cbk_fn, topics=set(), consumer_configs=dict(), **kwargs):
@@ -12,18 +11,14 @@ class KafkaConsumerManager:
         self.__group_id = consumer_configs.get('group_id', '')
         self.__consumer_list = list()
         self.__max_consumers = int(kwargs.get('max_consumers', MAX_CONSUMERS))
-        self.__default_consumer = Consumer(*topics, **consumer_configs)
-        self.__consume_message(
-            self.__default_consumer, self.__cbk_fn
-        )
+        self.increment_consumer(DEFAULT_CONSUMERS)
 
     def __consume_message(self, consumer, process_fn):
         assert isinstance(consumer, Consumer), 'consumer must be an instance of Consumer'
         assert callable(process_fn), 'process_fn must be a callable function'
-        assert active_count() <= MAX_CONSUMERS, 'Cannot invoke any more consumers. It has spawned maximum number of avalable consumers'
-        DEFAULT_WORKER_THREAD.process_tasks(
-            consumer.poll_topics, process_fn
-        )
+        print('consuming messages')
+        t = Thread(target=consumer.poll_topics, args=[process_fn], daemon=True)
+        t.start()
 
     def subscribed_topics(self):
         return self.__topics
@@ -42,13 +37,14 @@ class KafkaConsumerManager:
             self.update_consumer_subscriptions()
 
     def update_consumer_subscriptions(self):
-        self.__default_consumer.subscribe_topics(*self.__topics)
         for consumer in self.__consumer_list:
             consumer.subscribe_topics(*self.__topics)
 
     def increment_consumer(self, count):
         assert isinstance(count, int), 'count must be a integer'
         assert count <= self.__max_consumers, 'Maximum consumers spawned and cannot increment consumers'
+        assert active_count() <= self.__max_consumers + count, 'Cannot invoke any more consumers. It has spawned maximum number of avalable consumers'
+
         print('spawning new consumers', count)
         for _ in range(count):
             consumer = Consumer(*self.__topics, **self.__consumer_configs)
@@ -61,6 +57,9 @@ class KafkaConsumerManager:
     
     def decrement_consumer(self, count):
         assert isinstance(count, int), 'count must be a integer'
+
+        active_consumer_count = len(self.__consumer_list) - count
+        assert active_consumer_count >= 1, 'cannot decrement any more consumers'
         print('removing consumers', count)
         for consumer in self.__consumer_list[:count]:
             consumer.stop_polling()

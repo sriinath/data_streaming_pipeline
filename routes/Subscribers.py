@@ -4,7 +4,6 @@ from falcon import HTTP_200, HTTP_400, HTTPInternalServerError
 from workers.kafka_worker.producer import default_producer
 from processes.main_processor import default_consumer
 from exceptions.exception_handler import ExceptionHandler
-from constants import INTERNAL_CONSUMER_TOPIC, SUBSCRIBE_TOPIC
 
 class Subscribers:
     @ExceptionHandler
