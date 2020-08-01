@@ -1,0 +1,17 @@
+version: '3.7'
+services:
+  app:
+    image: kafka_streaming_pipeline
+    container_name: kafka_streaming_pipeline
+    build:
+      context: .
+      dockerfile: Dockerfile
+    expose:
+      - 8080
+  nginx:
+    image: kafka_streaming_server
+    build:
+      context: nginx
+      dockerfile: Dockerfile
+    ports:
+      - "${EXTERNAL_PORT}:${INTERNAL_PORT}"
