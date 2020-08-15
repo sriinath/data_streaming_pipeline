@@ -5,7 +5,6 @@ from .redis_utils import DEFAULT_REDIS
 
 class AuthMiddleware:
     def process_request(self, req, resp):
-        print(req.path)
         if req.path == '/ping':
             return
 
