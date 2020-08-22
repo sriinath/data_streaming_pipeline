@@ -1,7 +1,12 @@
+import os
+import sys
+import json
 from threading import active_count, Thread
+# sys.path.append(os.getcwd())
 
 from workers.kafka_worker.consumer import Consumer
 from constants import MAX_CONSUMERS, DEFAULT_CONSUMERS
+from .redis_utils import DEFAULT_REDIS
 
 class KafkaConsumerManager:
     def __init__(self, cbk_fn, topics=set(), consumer_configs=dict(), **kwargs):
@@ -16,7 +21,6 @@ class KafkaConsumerManager:
     def __consume_message(self, consumer, process_fn):
         assert isinstance(consumer, Consumer), 'consumer must be an instance of Consumer'
         assert callable(process_fn), 'process_fn must be a callable function'
-        print('consuming messages')
         t = Thread(target=consumer.poll_topics, args=[process_fn], daemon=True)
         t.start()
 
@@ -30,7 +34,10 @@ class KafkaConsumerManager:
         for topic in topics:
             if topic not in self.__topics:
                 self.__topics.add(topic)
-        self.update_consumer_subscriptions()
+        
+        if self.__topics:
+            DEFAULT_REDIS.set_value('app_topics', json.dumps(list(self.__topics)))
+            self.update_consumer_subscriptions()
 
     def remove_topic(self, topic):
         if topic in self.__topics:

@@ -2,3 +2,4 @@ falcon==2.0.0
 kafka-python==2.0.1
 redis==3.5.3
 uwsgi==2.0.18
+requests == 2.23.0

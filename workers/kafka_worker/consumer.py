@@ -51,6 +51,7 @@ class Consumer:
                 message = self.__consumer.poll(
                     timeout_ms=timeout_ms, max_records=max_records
                 )
+
                 if message:
                     Consumer.__flight_messages[self.__group_id] = 0
                     self.__poll_delay = MIN_POLL_DELAY
@@ -71,14 +72,15 @@ class Consumer:
                         self.__poll_delay = MAX_POLL_DELAY
                 sleep(self.__poll_delay)
             except AssertionError as assertion_exc:
-                print(assertion_exc)
                 self.stop_polling()
-        print('exit from polling')
+                print(assertion_exc)
+
         return None
 
     def poll_topics(self, process_fn, timeout_ms=0, max_records=MAX_RECORDS_PER_POLL):
         assert process_fn and callable(process_fn), \
             'process_fn is mandatory and must be callable'
+        print('polling has begun')
         for records in self.__poll(timeout_ms=timeout_ms, max_records=max_records):
             if records is None:
                 break

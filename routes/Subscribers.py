@@ -1,60 +1,63 @@
 import json
 from falcon import HTTP_200, HTTP_400, HTTPInternalServerError
 
-from workers.kafka_worker.producer import default_producer
-from processes.main_processor import default_consumer
 from processes.redis_utils import DEFAULT_REDIS
 from exceptions.exception_handler import ExceptionHandler
-from constants import TOPIC_PREFIX
+from processes.redis_utils import DEFAULT_REDIS
 
 class Subscribers:
     @ExceptionHandler
-    def on_put(self, request, response):
-        req_body = json.load(request.bounded_stream)
-        assert req_body, 'JSON body is mandatory to process this request'
-        topic = req_body.get('topic', None)
-
-        assert topic, 'Topic is mandatory in the request body'
-        data = req_body.get('data', [])
-
-        assert data, 'Cannot send an empty message to the topic'
-        if isinstance(data, list):
-            default_producer.send_message(topic, data=data)
-        else:
-            default_producer.send_message(topic, key='', value=data)
-        response.body = json.dumps({
-            'status': 'Success',
-            'message': 'Added the message to the topic successfully'
-        })
-        response.status = HTTP_200
-
-    @ExceptionHandler
     def on_post(self, request, response):
-        user_name = request.context['user_name']
+        topic_key = request.get_header('topic-key')
+        assert topic_key, 'topic-key is a mandatory header push message to topic'
+
         req_body = json.load(request.bounded_stream)
         assert req_body, 'JSON body is mandatory to process this request'
+
+        failed_topic = list()
 
         for subscription in req_body:
             topics = subscription.get('topics', [])
             assert topics, 'Topic is mandatory in the request body'
 
-            subscribe_data = subscription.get('subscibe', [])
-            default_consumer.add_topic(topics)
+            subscribe_data = subscription.get('subscribe', [])
             assert isinstance(subscribe_data, list), 'each item of subscibe must be a object'
 
+            subscription_data = list()
             for subscriber in subscribe_data:
-                url = subscriber.get('url', '')
+                url = subscriber.get('subscription_url', '')
                 assert url, 'url must be valid'
+                subscription_data.append(
+                    subscriber
+                )
 
-                for topic in topics:
-                    topic_key = '{}:{}'.format(TOPIC_PREFIX, topic)
-                    key = '{}:{}'.format(user_name, url)
+            for topic in topics:
+                topic_data = DEFAULT_REDIS.get_hash_value(
+                    topic_key, topic
+                )
+                
+                if not topic_data:
+                    failed_topic.append(topic)
+                    topics.remove(topic)
+                else:
+                    topic_data = json.loads(topic_data) + subscription_data
                     DEFAULT_REDIS.update_hash_value(
-                        topic_key, key, json.dumps(subscriber)
+                        topic_key, topic, json.dumps(topic_data)
                     )
 
-        response.body = json.dumps({
-            'status': 'Success',
-            'message': 'Subscribed to the topics successfully'
-        })
+            assert topics, 'Topics passed must be valid and created before subscribing'
+            # app_consumer.add_topic(topics)
+            DEFAULT_REDIS.append_element('topics', topics)
+        response_data = dict(
+            status='Success',
+            message='Subscribed to the topics successfully'
+        )
+        if failed_topic:
+            response_data.update(
+                status='Failure',
+                message='Failed to subscribe to the topics. Make sure these topics are created before subscribing.',
+                data=failed_topic
+            )
+
+        response.body = json.dumps(response_data)
         response.status = HTTP_200

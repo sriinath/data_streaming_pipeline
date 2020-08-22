@@ -1,8 +1,6 @@
-import json
-from falcon import HTTP_503
 from kafka import KafkaProducer
+import traceback
 
-from exceptions.custom_exception import CustomException
 
 class Producer:
     def __init__(self, **kwargs):
@@ -25,11 +23,10 @@ class Producer:
                     )
             else:
                 self.__producer.send(*args, **kwargs)
+
             self.__producer.flush()
         except Exception as exc:
+            print('Exception while sending message')
             print(exc)
-
-default_producer = Producer(
-    key_serializer=str.encode,
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
-)
+            print(traceback.format_exc())
+            raise Exception('Something went wrong while adding message')

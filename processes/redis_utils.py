@@ -1,4 +1,6 @@
 import redis
+from time import sleep
+
 
 class RedisUtils():
     def __init__(self, **kwargs):
@@ -55,5 +57,27 @@ class RedisUtils():
         except Exception as redis_err:
             print(redis_err)
         return None
+
+    def append_element(self, key, elements):
+        try:
+            self.redis_cli.rpush(
+                key, *elements
+            )
+        except Exception as redis_err:
+            print(redis_err)
+    
+    def pop_element(self, key):
+        try:
+            while True:
+                value = self.redis_cli.lpop(
+                    key
+                )
+                if value:
+                    yield value.decode("utf-8")
+                sleep(10)
+        except Exception as redis_err:
+            print(redis_err)
+        return ''
+
 
 DEFAULT_REDIS = RedisUtils()
