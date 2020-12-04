@@ -39,5 +39,5 @@ class ExceptionHandler:
             response.status = HTTP_500
             response.body = json.dumps({
                 'status': 'Failure',
-                'message': 'Somethink went wrong while processing the request'
+                'message': 'Something went wrong while processing the request'
             })

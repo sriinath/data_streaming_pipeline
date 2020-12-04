@@ -6,12 +6,20 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    expose:
-      - 8080
+    command:
+      gunicorn app:api -b unix:/data_streaming_pipeline/datastreaming.sock -w 2
+    volumes:
+      - socket_data:/data_streaming_pipeline
   nginx:
     image: kafka_streaming_server
     build:
-      context: nginx
+      context: conf/nginx/
       dockerfile: Dockerfile
     ports:
-      - "${EXTERNAL_PORT}:${INTERNAL_PORT}"
+      - 80:80
+    depends_on:
+      - app
+    volumes:
+      - socket_data:/data_streaming_pipeline
+volumes:
+  socket_data:

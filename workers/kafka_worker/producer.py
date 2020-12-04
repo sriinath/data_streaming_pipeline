@@ -1,35 +1,39 @@
 import json
-from falcon import HTTP_503
 from kafka import KafkaProducer
+from kafka.errors import NoBrokersAvailable
 
-from exceptions.custom_exception import CustomException
 
 class Producer:
     def __init__(self, **kwargs):
-        self.__producer = KafkaProducer(**kwargs)
+        self.__producer = None
+        try:
+            self.__producer = KafkaProducer(**kwargs)
+        except NoBrokersAvailable as exc:
+            print(exc)
+            print('Please make sure the Kafka brokers are available', kwargs)
     
-    def send_message(self, *args, **kwargs):
+    def send_message(self, topic, **kwargs):
+        if not self.__producer:
+            raise Exception('Producer is not yet initiated')
+
         data = []
         if 'data' in kwargs:
-            data = kwargs.pop('data')
-        try:
-            if isinstance(data, list) and data:
-                for chunk in data:
-                    key = chunk.get('key', '')
-                    value = chunk.get('value', {})
-                    self.__producer.send(
-                        *args,
-                        key=key,
-                        value=value,
-                        **kwargs
-                    )
-            else:
-                self.__producer.send(*args, **kwargs)
-            self.__producer.flush()
-        except Exception as exc:
-            print(exc)
+            data = kwargs.pop('data', [])
 
-default_producer = Producer(
-    key_serializer=str.encode,
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
-)
+        if isinstance(data, list) and data:
+            for chunk in data:
+                key = chunk.get('key', '')
+                value = chunk.get('value', {})
+                self.__producer.send(
+                    topic,
+                    key=key,
+                    value=value,
+                    **kwargs
+                )
+        else:
+            self.__producer.send(topic, **kwargs)
+
+        self.__producer.flush()
+
+    def is_connected(self):
+        return self.__producer and self.__producer.bootstrap_connected()
