@@ -1,23 +1,39 @@
 from kafka import KafkaConsumer
 from time import sleep
-import json
 
 from constants import MAX_POLL_DELAY, MIN_POLL_DELAY, MAX_RECORDS_PER_POLL
 
 class Consumer:
     __flight_messages = dict()
+    __consumers_count = 0
+
     def __init__(self, *args, **kwargs):
+        print('Topics listened by the consumers:', *args)
         self.__consumer = KafkaConsumer(*args, **kwargs)
         self.__enable_polling = True
         self.__is_active = True
         self.__poll_delay = MIN_POLL_DELAY
         self.__group_id = kwargs.get('group_id', None)
+        self.__name = 'Consumer_{}'.format(Consumer.get_consumer_count())
+        Consumer.increment_consumer_count()
         if self.__group_id and self.__group_id not in Consumer.__flight_messages:
             Consumer.__flight_messages.update({ self.__group_id: 0 })
 
     @staticmethod
     def get_messages_in_flight():
         return Consumer.__flight_messages
+
+    @staticmethod
+    def get_consumer_count():
+        return Consumer.__consumers_count
+    
+    @staticmethod
+    def update_consumer_count(count):
+        Consumer.__consumers_count = count
+
+    @staticmethod
+    def increment_consumer_count():
+        Consumer.__consumers_count += 1
 
     def is_active(self):
         return self.__is_active
@@ -47,11 +63,11 @@ class Consumer:
 
     def __poll(self, timeout_ms=0, max_records=MAX_RECORDS_PER_POLL):
         while self.__enable_polling:
+            print('{} Listening to messages...'.format(self.__name))
             try:
                 message = self.__consumer.poll(
                     timeout_ms=timeout_ms, max_records=max_records
                 )
-
                 if message:
                     Consumer.__flight_messages[self.__group_id] = 0
                     self.__poll_delay = MIN_POLL_DELAY
@@ -75,6 +91,7 @@ class Consumer:
                 self.stop_polling()
                 print(assertion_exc)
 
+        print('returning None')
         return None
 
     def poll_topics(self, process_fn, timeout_ms=0, max_records=MAX_RECORDS_PER_POLL):
