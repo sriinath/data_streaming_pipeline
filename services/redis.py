@@ -3,38 +3,41 @@ import redis
 import json
 
 class __Redis:
-    __redis=None
-    @staticmethod
-    def connect():
-        host=os.environ.get('REDIS_URL')
-        port=os.environ.get('REDIS_PORT')
+    def __init__(self):
+        self.__redis=None
+
+    def connect(self):
+        host=os.environ.get('REDIS_URL', 'localhost')
+        port=os.environ.get('REDIS_PORT', 6379)
         password=os.environ.get('REDIS_PASSWORD', '')
         if host is not None and port is not None and password is not None:
-            __Redis.__redis=redis.Redis(
+            self.__redis=redis.Redis(
                 host=host,
                 port=port, 
                 password=password
             )
             try:
-                print('Pinging redis connection', __Redis.__redis.ping())
+                print('Pinging redis connection', self.__redis.ping())
             except Exception as err:
-                print('__Redis is not connected', err)
+                print('self.__redis is not connected', err)
         else:
             raise Exception('HOST {}, PORT {} and PASSWORD {} should not be NONE for redis connection'.format(host, port, password))
 
-    @staticmethod
-    def get_redis_client():
+    def get_redis_client(self):
         try:
-            if __Redis.__redis is not None and __Redis.__redis.ping():
-                return __Redis.__redis
+            if self.__redis is not None:
+                if self.__redis.ping():
+                    return self.__redis
+                else:
+                    return None
             else:
-                return  None
+                raise Exception("No Active Redis connection available")
         except Exception as err:
-            print('__Redis connection is not valid', err)
+            print('self.__redis connection is not valid', err)
             try:
-                __Redis.connect()
-                if __Redis.__redis is not None and __Redis.__redis.ping():
-                    return __Redis.__redis
+                self.connect()
+                if self.__redis is not None and self.__redis.ping():
+                    return self.__redis
                 else:
                     return None
             except Exception as e:
@@ -42,14 +45,34 @@ class __Redis:
                 return None
     
     def get_value(self, key):
-        cli = __Redis.get_redis_client()
+        cli = self.get_redis_client()
         if cli:
             return cli.get(key)
 
         return None
 
     def set_value(self, key, value):
-        cli = __Redis.get_redis_client().set(key, value)
+        cli = self.get_redis_client()
+        if cli:
+            cli.set(key, value)
 
+    def get_multi_value(self, hash_key, key):
+        cli = self.get_redis_client()
+        if cli:
+            return cli.hget(hash_key, key)
+
+        return None
+
+    def get_all_hash_key_value(self, key):
+        cli = self.get_redis_client()
+        if cli:
+            return cli.hgetall(key)
+
+        return None
+
+    def set_multi_value(self, hash_key, key, value):
+        cli = self.get_redis_client()
+        if cli:
+            cli.hset(hash_key, key, value)
 
 redis_cli = __Redis()

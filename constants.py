@@ -17,3 +17,6 @@ CALLBACK_URL = os.environ.get('CALLBACK_URL')
 CALLBACK_HEADERS = json.loads(os.environ.get('CALLBACK_HEADERS', '{}'))
 SUBSCRIBER_INFO_URL = json.loads('SUBSCRIBER_INFO_URL')
 SUBSCRIBER_INFO_HEADERS = json.loads(os.environ.get('SUBSCRIBER_INFO_HEADERS', '{}'))
+
+HEALTHCHECK_HASHKEY = os.environ.get('HEALTHCHECK_HASHKEY', 'health_check')
+META_INFO_HASHKEY = os.environ.get('META_INFO_HASHKEY', 'consumer:meta')
